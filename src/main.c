@@ -68,6 +68,10 @@
 #include <sys/sockio.h>
 #endif
 
+#ifdef USE_SYSTEMD
+#include <systemd/sd-daemon.h>
+#endif
+
 #include "core/config.h"
 #include "core/dprint.h"
 #include "core/daemonize.h"
@@ -684,6 +688,9 @@ static void sig_alarm_abort(int signo)
 
 static void shutdown_children(int sig, int show_status)
 {
+#ifdef USE_SYSTEMD
+	sd_notify(0, "STOPPING=1");
+#endif
 	kill_all_children(sig);
 	if (set_sig_h(SIGALRM, sig_alarm_kill) == SIG_ERR ) {
 		LM_ERR("could not install SIGALARM handler\n");
@@ -1788,6 +1795,9 @@ int main_loop(void)
 		cfg_ok=1;
 
 		*_sr_instance_started = 1;
+#ifdef USE_SYSTEMD
+		sd_notifyf(0, "READY=1\nMAINPID=%lu", (unsigned long)creator_pid);
+#endif
 
 #ifdef EXTRA_DEBUG
 		for (r=0; r<*process_count; r++){
