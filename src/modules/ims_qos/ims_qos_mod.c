@@ -1267,8 +1267,12 @@ static int w_rx_aar_register(struct sip_msg *msg, char* route, char* str1, char*
 		}
 
 		//we use the received IP address for the framed_ip_address 
-		recv_ip.s = ip_addr2a(&msg->rcv.src_ip);
-		recv_ip.len = strlen(ip_addr2a(&msg->rcv.src_ip));
+		memset(&recv_ip, 0, sizeof(str));
+		char buff[IP_ADDR_MAX_STR_SIZE];
+		memcpy(&buff, vb->host.s, vb->host.len);
+		buff[vb->host.len]=0;
+		recv_ip.s = buff;
+		recv_ip.len = strlen(buff);
 
 		ip_version = check_ip_version(recv_ip);
 		if (!ip_version) {
@@ -1276,8 +1280,8 @@ static int w_rx_aar_register(struct sip_msg *msg, char* route, char* str1, char*
 				goto error;
 		}
 
-		recv_port = msg->rcv.src_port;
-		recv_proto = msg->rcv.proto;
+		recv_port = via_port;
+		recv_proto = via_proto;
 
 		LM_DBG("Message received IP address is: [%.*s]\n", recv_ip.len, recv_ip.s);
 		LM_DBG("Message via is [%d://%.*s:%d]\n", vb->proto, vb->host.len, vb->host.s, via_port);
