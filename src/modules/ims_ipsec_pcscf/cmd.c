@@ -139,6 +139,8 @@ static int fill_contact(struct pcontact_info* ci, struct sip_msg* m)
     contact_body_t* cb = NULL;
     struct via_body* vb = NULL;
     struct sip_msg* req = NULL;
+    str aor;
+    int i = 0;
 
     if(!ci) {
         LM_ERR("called with null ptr\n");
@@ -160,7 +162,16 @@ static int fill_contact(struct pcontact_info* ci, struct sip_msg* m)
         ci->via_host = uri.host;
         ci->via_port = uri.port_no ? uri.port_no : 5060;
         ci->via_prot = 0;
-        ci->aor = m->first_line.u.request.uri;
+
+        aor.s = pkg_malloc(m->first_line.u.request.uri.len);
+        if (aor.s == NULL) {
+            LM_ERR("memory allocation failure\n");
+            return -1;
+        }
+        memcpy(aor.s, m->first_line.u.request.uri.s, m->first_line.u.request.uri.len);
+        aor.len = m->first_line.u.request.uri.len;
+
+        //ci->aor = m->first_line.u.request.uri;
         ci->searchflag = SEARCH_NORMAL;
 
         req = m;
@@ -190,7 +201,16 @@ static int fill_contact(struct pcontact_info* ci, struct sip_msg* m)
         ci->via_host = vb->host;
         ci->via_port = vb->port;
         ci->via_prot = vb->proto;
-        ci->aor = cb->contacts->uri;
+
+        aor.s = pkg_malloc(cb->contacts->uri.len);
+        if (aor.s == NULL) {
+            LM_ERR("memory allocation failure\n");
+            return -1;
+        }
+        memcpy(aor.s, cb->contacts->uri.s, cb->contacts->uri.len);
+        aor.len = cb->contacts->uri.len;
+
+        //ci->aor = cb->contacts->uri;
         ci->searchflag = SEARCH_RECEIVED;
     }
     else {
@@ -198,6 +218,14 @@ static int fill_contact(struct pcontact_info* ci, struct sip_msg* m)
         return -1;
     }
 
+    for (i = 4; i < aor.len; i++)
+        if (aor.s[i] == ';') {
+            aor.len = i;
+            break;
+        }
+
+    LM_DBG("AOR <%.*s>\n", aor.len, aor.s);
+    ci->aor = aor;
 
     char* srcip = NULL;
     if((srcip = pkg_malloc(50)) == NULL) {
