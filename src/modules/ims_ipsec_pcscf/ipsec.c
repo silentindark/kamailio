@@ -89,7 +89,7 @@ static void string_to_key(char* dst, const str key_string)
 }
 
 
-int add_sa(struct mnl_socket* nl_sock, const struct ip_addr *src_addr_param, const struct ip_addr *dest_addr_param, int s_port, int d_port, int long id, str ck, str ik, str r_alg)
+int add_sa(struct mnl_socket* nl_sock, const struct ip_addr *src_addr_param, const struct ip_addr *dest_addr_param, int s_port, int d_port, int long id, str ck, str ik, str r_alg, str r_ealg)
 {
     char l_msg_buf[MNL_SOCKET_BUFFER_SIZE];
     char l_auth_algo_buf[XFRM_TMPLS_BUF_SIZE];
@@ -155,7 +155,7 @@ int add_sa(struct mnl_socket* nl_sock, const struct ip_addr *src_addr_param, con
 
     // Add authentication algorithm for this SA
 
-    // The cast below is performed because alg_key from struct xfrm_algo is char[0]
+    // The cast below is performed because alg_key from struct xfrm_algo_auth is char[0]
     // The point is to provide a continuous chunk of memory with the key in it
     l_auth_algo = (struct xfrm_algo *)l_auth_algo_buf;
 
@@ -177,7 +177,19 @@ int add_sa(struct mnl_socket* nl_sock, const struct ip_addr *src_addr_param, con
 
     // add encription algorithm for this SA
     l_enc_algo = (struct xfrm_algo *)l_enc_algo_buf;
-    strcpy(l_enc_algo->alg_name,"cipher_null");
+    // Set the proper algorithm by r_ealg str
+    if(strncasecmp(r_ealg.s, "aes-cbc", r_ealg.len) == 0) {
+        strcpy(l_enc_algo->alg_name,"aes");
+    }
+    else if(strncasecmp(r_ealg.s, "des-ede3-cbc", r_ealg.len) == 0) {
+        strcpy(l_enc_algo->alg_name,"des3_ede");
+    } else {
+        // set default algorithm to null
+        strcpy(l_enc_algo->alg_name,"cipher_null");
+    }
+
+    l_enc_algo->alg_key_len = ck.len * 4;
+    string_to_key(l_enc_algo->alg_key, ck);
 
     mnl_attr_put(l_nlh, XFRMA_ALG_CRYPT, sizeof(struct xfrm_algo) + l_enc_algo->alg_key_len, l_enc_algo);
 
