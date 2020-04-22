@@ -187,9 +187,12 @@ int add_sa(struct mnl_socket* nl_sock, const struct ip_addr *src_addr_param, con
         // set default algorithm to null
         strcpy(l_enc_algo->alg_name,"cipher_null");
     }
-
-    l_enc_algo->alg_key_len = ck.len * 4;
-    string_to_key(l_enc_algo->alg_key, ck);
+    if (strncasecmp(r_ealg.s, "null", r_ealg.len) != 0) {
+        l_enc_algo->alg_key_len = ck.len * 4;
+        string_to_key(l_enc_algo->alg_key, ck);
+    } else {
+        l_enc_algo->alg_key_len = 0;
+    }
 
     mnl_attr_put(l_nlh, XFRMA_ALG_CRYPT, sizeof(struct xfrm_algo) + l_enc_algo->alg_key_len, l_enc_algo);
 
