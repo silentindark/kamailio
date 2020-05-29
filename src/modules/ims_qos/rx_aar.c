@@ -1024,7 +1024,7 @@ int rx_send_aar_register(struct sip_msg *msg, AAASession* auth, saved_transactio
                &port_from, &af_signaling_ip,
                &port_to, &protocol,
                &raw_stream,
-               &raw_stream, DLG_MOBILE_REGISTER, AVP_EPC_Flow_Usage_AF_Signaling);
+               &raw_stream, DLG_MOBILE_ORIGINATING, AVP_EPC_Flow_Usage_AF_Signaling);
 
     /* Add specific action AVP's */
     rx_add_specific_action_avp(aar, 1); // CHARGING_CORRELATION_EXCHANGE
