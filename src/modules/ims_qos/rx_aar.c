@@ -519,27 +519,17 @@ int add_media_components(AAAMessage* aar, struct sip_msg *req,
 					
 						if (request_originated_from_callee) {
 							LM_DBG("Request originated from callee so IPs are reversed\n");	
-							// ipA = rpl_sdp_session->ip_addr;
-							// portA = rpl_sdp_stream->port;
-
-							// ipB = req_sdp_session->ip_addr;
-							// portB = req_sdp_stream->port;
-							ipA = req_sdp_session->ip_addr;
-							portA = req_sdp_stream->port;
-
-							ipB = rpl_sdp_session->ip_addr;
-							portB = rpl_sdp_stream->port;
-						} else {
-							// ipA = req_sdp_session->ip_addr;
-							// portA = req_sdp_stream->port;
-
-							// ipB = rpl_sdp_session->ip_addr;
-							// portB = rpl_sdp_stream->port;
 							ipA = rpl_sdp_session->ip_addr;
 							portA = rpl_sdp_stream->port;
 
 							ipB = req_sdp_session->ip_addr;
 							portB = req_sdp_stream->port;
+						} else {
+							ipA = req_sdp_session->ip_addr;
+							portA = req_sdp_stream->port;
+
+							ipB = rpl_sdp_session->ip_addr;
+							portB = rpl_sdp_stream->port;
 						}
 						
 
@@ -547,15 +537,11 @@ int add_media_components(AAAMessage* aar, struct sip_msg *req,
 								LM_DBG("Request SDP connection IP could not be retrieved, so we use SDP 1st stream IP\n");
 								if (request_originated_from_callee) {
 									LM_DBG("Request originated from callee so IPs are reversed\n");	
-									// ipA = rpl_sdp_stream->ip_addr;
-									// portA = rpl_sdp_stream->port;
-									ipA = req_sdp_stream->ip_addr;
-									portA = req_sdp_stream->port;
-								} else {
-									// ipA = req_sdp_stream->ip_addr;
-									// portA = req_sdp_stream->port;
 									ipA = rpl_sdp_stream->ip_addr;
 									portA = rpl_sdp_stream->port;
+								} else {
+									ipA = req_sdp_stream->ip_addr;
+									portA = req_sdp_stream->port;
 								}
 								
 								
@@ -569,15 +555,11 @@ int add_media_components(AAAMessage* aar, struct sip_msg *req,
 								LM_DBG("Reply SDP connection IP could not be retrieved, so we use SDP 1st stream IP\n");
 								if (request_originated_from_callee) {
 									LM_DBG("Request originated from callee so IPs are reversed\n");	
-									// ipB = req_sdp_stream->ip_addr;
-									// portB = req_sdp_stream->port;
-									ipB = rpl_sdp_stream->ip_addr;
-									portB = rpl_sdp_stream->port;
-								} else {
-									// ipB = rpl_sdp_stream->ip_addr;
-									// portB = rpl_sdp_stream->port;
 									ipB = req_sdp_stream->ip_addr;
 									portB = req_sdp_stream->port;
+								} else {
+									ipB = rpl_sdp_stream->ip_addr;
+									portB = rpl_sdp_stream->port;
 								}
 								
 								
