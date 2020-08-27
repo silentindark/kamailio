@@ -275,7 +275,7 @@ static int get_ck_ik(const struct sip_msg* m, str* ck, str* ik)
     return 0;
 }
 
-static int update_contact_ipsec_params(ipsec_t* s, const struct sip_msg* m)
+static int update_contact_ipsec_params(ipsec_t* s, const struct sip_msg* m, int acquire_new_port_ps)
 {
     // Get CK and IK
     str ck, ik;
@@ -336,18 +336,20 @@ static int update_contact_ipsec_params(ipsec_t* s, const struct sip_msg* m)
         return -1;
     }
 
-    if((s->port_ps = acquire_sport()) == 0){
-        LM_ERR("No free server port for IPSEC tunnel creation\n");
-		shm_free(s->ck.s);
-		s->ck.s = NULL; s->ck.len = 0;
-		shm_free(s->ik.s);
-		s->ik.s = NULL; s->ik.len = 0;
+    if (acquire_new_port_ps) {
+        if((s->port_ps = acquire_sport()) == 0){
+            LM_ERR("No free server port for IPSEC tunnel creation\n");
+            shm_free(s->ck.s);
+            s->ck.s = NULL; s->ck.len = 0;
+            shm_free(s->ik.s);
+            s->ik.s = NULL; s->ik.len = 0;
 
-		release_cport(s->port_pc);
+            release_cport(s->port_pc);
 
-		release_spi(s->spi_pc);
-		release_spi(s->spi_ps);
-        return -1;
+            release_spi(s->spi_pc);
+            release_spi(s->spi_ps);
+            return -1;
+        }
     }
 
     return 0;
@@ -615,10 +617,68 @@ int ipsec_create(struct sip_msg* m, udomain_t* d)
                 ci.aor.len, ci.aor.s, ci.via_prot, ci.via_host.len, ci.via_host.s, ci.via_port,
                 ci.received_proto, ci.received_host.len, ci.received_host.s, ci.received_port);
 
-        ipsec_t* s = pcontact->security_temp->data.ipsec;
+        security_t* sec_params = NULL;
 
-        if(update_contact_ipsec_params(s, m) != 0) {
+        ipsec_t* s = NULL;
+
+        // Parse security parameters from the REGISTER request and get some data for the tunnels
+        if((sec_params = cscf_get_security(req)) == NULL) {
+            LM_CRIT("No security parameters in REGISTER request\n");
             goto cleanup;
+        }
+
+        if (sec_params->data.ipsec->port_uc != pcontact->security_temp->data.ipsec->port_uc ||
+            sec_params->data.ipsec->port_us != pcontact->security_temp->data.ipsec->port_us ||
+            sec_params->data.ipsec->spi_uc != pcontact->security_temp->data.ipsec->spi_uc ||
+            sec_params->data.ipsec->spi_us != pcontact->security_temp->data.ipsec->spi_us) {
+
+            // Backup the Proxy Server port
+            unsigned short port_ps = pcontact->security_temp->data.ipsec->port_ps;
+
+            if(pcontact->security_temp->sec_header.s)
+                shm_free(pcontact->security_temp->sec_header.s);
+
+            if(pcontact->security_temp->data.ipsec){
+                if(pcontact->security_temp->data.ipsec->ealg.s)
+                    shm_free(pcontact->security_temp->data.ipsec->ealg.s);
+                if(pcontact->security_temp->data.ipsec->r_ealg.s)
+                    shm_free(pcontact->security_temp->data.ipsec->r_ealg.s);
+                if(pcontact->security_temp->data.ipsec->ck.s)
+                    shm_free(pcontact->security_temp->data.ipsec->ck.s);
+                if(pcontact->security_temp->data.ipsec->alg.s)
+                    shm_free(pcontact->security_temp->data.ipsec->alg.s);
+                if(pcontact->security_temp->data.ipsec->r_alg.s)
+                    shm_free(pcontact->security_temp->data.ipsec->r_alg.s);
+                if(pcontact->security_temp->data.ipsec->ik.s)
+                    shm_free(pcontact->security_temp->data.ipsec->ik.s);
+                if(pcontact->security_temp->data.ipsec->prot.s)
+                    shm_free(pcontact->security_temp->data.ipsec->prot.s);
+                if(pcontact->security_temp->data.ipsec->mod.s)
+                    shm_free(pcontact->security_temp->data.ipsec->mod.s);
+
+                shm_free(pcontact->security_temp->data.ipsec);
+            }
+            shm_free(pcontact->security_temp);
+
+            if(ul.update_temp_security(d, sec_params->type, sec_params, pcontact) != 0){
+                LM_ERR("Error updating temp security\n");
+                goto cleanup;
+            }
+
+            s = pcontact->security_temp->data.ipsec;
+            // Restore the backed up Proxy Server port
+            s->port_ps = port_ps;
+
+            if(update_contact_ipsec_params(s, m, 0) != 0) {
+                goto cleanup;
+            }
+        } else {
+
+            s = pcontact->security_temp->data.ipsec;
+
+            if(update_contact_ipsec_params(s, m, 1) != 0) {
+                goto cleanup;
+            }
         }
 
         //Convert ipsec address from str to struct ip_addr
@@ -668,7 +728,7 @@ int ipsec_create(struct sip_msg* m, udomain_t* d)
             goto cleanup;
         }
 
-        if(update_contact_ipsec_params(req_sec_params->data.ipsec, m) != 0) {
+        if(update_contact_ipsec_params(req_sec_params->data.ipsec, m, 0) != 0) {
             goto cleanup;
         }
 
@@ -894,6 +954,8 @@ int ipsec_destroy(struct sip_msg* m, udomain_t* d)
 
     destroy_ipsec_tunnel(ci.received_host, pcontact->security_temp->data.ipsec, pcontact->contact_port);
 
+    ipsec_reconfig();
+
     ret = IPSEC_CMD_SUCCESS;    // all good, set ret to SUCCESS, and exit
 
 cleanup:
@@ -949,6 +1011,8 @@ int ipsec_destroy_by_contact(udomain_t* _d, str * uri, str * received_host, int 
     }
 
     destroy_ipsec_tunnel(search_ci.received_host, pcontact->security_temp->data.ipsec, pcontact->contact_port);
+
+    ipsec_reconfig();
 
     ret = IPSEC_CMD_SUCCESS;    // all good, set ret to SUCCESS, and exit
 
