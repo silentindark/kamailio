@@ -897,12 +897,14 @@ int ipsec_forward(struct sip_msg* m, udomain_t* d)
 
     ret = IPSEC_CMD_SUCCESS; // all good, return SUCCESS
 
-    if(add_supported_secagree_header(m) != 0) {
-        goto cleanup;
-    }
+    if (req->first_line.u.request.method_value == METHOD_REGISTER) {
+        if(add_supported_secagree_header(m) != 0) {
+            goto cleanup;
+        }
 
-    if(add_security_server_header(m, s) != 0) {
-        goto cleanup;
+        if(add_security_server_header(m, s) != 0) {
+            goto cleanup;
+        }
     }
 
     ret = IPSEC_CMD_SUCCESS;    // all good, set ret to SUCCESS, and exit
