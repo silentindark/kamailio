@@ -835,14 +835,21 @@ int ipsec_forward(struct sip_msg* m, udomain_t* d)
         // for Reply get the dest proto from the received request
         dst_proto = req->rcv.proto;
 
+        // As per ETSI TS 133 203 V11.2.0, 7.1 Security association parameters
+        // https://tools.ietf.org/html/rfc3261#section-18
+
         // for Reply and TCP sends from P-CSCF server port, for Reply and UDP sends from P-CSCF client port
         src_port = dst_proto == PROTO_TCP ? s->port_ps : s->port_pc;
 
         // for Reply and TCP sends to UE client port, for Reply and UDP sends to UE server port
         dst_port = dst_proto == PROTO_TCP ? s->port_uc : s->port_us;
     }else{
-        // for Request get the dest proto from the saved contact
-        dst_proto = pcontact->received_proto;
+        if (req->first_line.u.request.method_value == METHOD_REGISTER) {
+            // for Request get the dest proto from the saved contact
+            dst_proto = pcontact->received_proto;
+        } else {
+            dst_proto = m->rcv.proto;
+        }
 
         // for Request sends from P-CSCF client port
         src_port = s->port_pc;
